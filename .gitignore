@@ -1,0 +1,21 @@
+# Build artifacts
+build/
+dist/
+*.spec.bak
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Output files (may contain sensitive data)
+*.xlsx
+*.pdf
+
+# PyInstaller temp
+*.manifest
+
+# OS files
+Thumbs.db
+.DS_Store
