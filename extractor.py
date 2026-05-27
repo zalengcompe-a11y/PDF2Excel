@@ -21,6 +21,49 @@ from thai_utils import fix_thai_order
 # Content text is 0°; diagonal watermarks are typically 30°–60°.
 _WATERMARK_ANGLE_THRESHOLD = 5.0
 
+# Bullet/list markers: lines starting with these get \n separation in Excel cells.
+_BULLET_MARKERS: tuple[str, ...] = ("•", "◦", "○", "●", "▪", "▸", "►", "–", "—", "-")
+
+
+def _join_cell_lines(lines: list[str]) -> str:
+    """
+    Join text lines extracted from a single PDF cell into a cell string.
+
+    Strategy:
+    - If the cell contains bullet markers (•, -, etc.), treat each bullet
+      as a distinct item and separate them with \\n (→ Alt+Enter in Excel).
+      Lines that do NOT start with a bullet are wrapped continuations of the
+      preceding bullet item — they are joined with a space instead.
+    - If no bullets are detected, fall back to joining everything with spaces
+      (standard paragraph / sentence text).
+
+    This preserves the original bullet list structure in Excel cells without
+    collapsing everything into a single unreadable line.
+    """
+    if not lines:
+        return ""
+
+    has_bullet = any(
+        any(ln.startswith(m) for m in _BULLET_MARKERS) for ln in lines
+    )
+    if not has_bullet:
+        return " ".join(lines)
+
+    groups: list[str] = []
+    current: str = ""
+    for ln in lines:
+        if any(ln.startswith(m) for m in _BULLET_MARKERS):
+            if current:
+                groups.append(current.strip())
+            current = ln
+        else:
+            # Wrapped continuation of the current bullet
+            current = (current + " " + ln).strip() if current else ln
+    if current:
+        groups.append(current.strip())
+
+    return "\n".join(groups)
+
 
 # pdfplumber strategies, ordered from most precise to most lenient
 _PLUMBER_STRATEGIES = [
@@ -83,11 +126,61 @@ class PDFExtractor:
         else:
             rows = self._extract_with_pdfplumber()
 
+        # Merge continuation rows produced by cells that span page boundaries.
+        # find_tables() splits such cells into a normal row on page N and a
+        # "continuation row" on page N+1 with all identifying columns empty.
+        rows = self._merge_continuation_rows(rows)
+
         if self.skip_rows and rows:
             self.log.info("Skipping first %d row(s) as requested.", self.skip_rows)
             rows = rows[self.skip_rows:]
 
         return rows
+
+    @staticmethod
+    def _merge_continuation_rows(rows: list[list[str]]) -> list[list[str]]:
+        """
+        Merge cross-page continuation rows into their preceding row.
+
+        When a table cell spans two pages, find_tables() returns:
+          - Page N  : a normal row with all columns populated
+          - Page N+1: a "continuation row" whose first two identifying columns
+                      are empty but whose value columns carry the overflow text
+
+        Detection heuristic: if col[0] and col[1] are both empty and at least
+        one other column has content, treat the row as a continuation.
+        The overflow content is appended to the matching column of the
+        preceding row, separated by \\n so bullets stay on distinct lines.
+        """
+        if not rows:
+            return rows
+
+        merged: list[list[str]] = []
+        for row in rows:
+            if not row:
+                continue
+            is_continuation = (
+                merged                            # there is a preceding row
+                and len(row) >= 2
+                and row[0] == ""                  # key col 1 (e.g. row number) empty
+                and row[1] == ""                  # key col 2 (e.g. name) empty
+                and any(c for c in row)           # but some column has content
+            )
+            if is_continuation:
+                prev = merged[-1]
+                # Extend prev row width if needed
+                while len(prev) < len(row):
+                    prev.append("")
+                for col_idx, cell in enumerate(row):
+                    if cell:
+                        if prev[col_idx]:
+                            prev[col_idx] = prev[col_idx] + "\n" + cell
+                        else:
+                            prev[col_idx] = cell
+            else:
+                merged.append(list(row))
+
+        return merged
 
     # ── PyMuPDF engine ───────────────────────────────────────────────────────
 
@@ -200,7 +293,7 @@ class PDFExtractor:
                 if line_text:
                     lines_out.append(line_text)
 
-        return " ".join(lines_out)
+        return _join_cell_lines(lines_out)
 
     @staticmethod
     def _extract_table_sorted(page, table) -> list[list[str]]:

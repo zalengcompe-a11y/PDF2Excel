@@ -51,8 +51,10 @@ class ExcelFormatter:
             self._ws.append(row)
             if idx == 1:
                 self._format_header(len(row))
-            elif idx % 2 == 0:
-                self._shade_row(idx, len(row))
+            else:
+                if idx % 2 == 0:
+                    self._shade_row(idx, len(row))
+                self._apply_wrap(idx, len(row))
 
         self._auto_column_widths()
         self._ws.freeze_panes = "A2"
@@ -79,10 +81,22 @@ class ExcelFormatter:
         for col in range(1, num_cols + 1):
             self._ws.cell(row=row_idx, column=col).fill = _ALT_ROW_BG
 
+    def _apply_wrap(self, row_idx: int, num_cols: int) -> None:
+        """Set wrap_text=True and vertical=top for cells that contain newlines (Alt+Enter)."""
+        for col in range(1, num_cols + 1):
+            cell = self._ws.cell(row=row_idx, column=col)
+            if cell.value and "\n" in str(cell.value):
+                cell.alignment = Alignment(wrap_text=True, vertical="top")
+
     def _auto_column_widths(self) -> None:
         for col in self._ws.columns:
             max_len = max(
-                (len(str(cell.value)) for cell in col if cell.value is not None),
+                (
+                    # For multi-line cells use the longest single line, not total length
+                    max((len(ln) for ln in str(cell.value).splitlines()), default=0)
+                    for cell in col
+                    if cell.value is not None
+                ),
                 default=8,
             )
             letter = get_column_letter(col[0].column)
