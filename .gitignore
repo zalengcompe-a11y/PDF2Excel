@@ -2,6 +2,11 @@
 build/
 dist/
 *.spec.bak
+*.zip
+
+# macOS
+.DS_Store
+__MACOSX/
 
 # Python cache
 __pycache__/

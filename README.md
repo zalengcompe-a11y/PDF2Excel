@@ -26,11 +26,19 @@
 
 ### วิธีใช้งาน (สำหรับทีม — ไม่ต้องติดตั้ง Python)
 
+**Windows**
 1. ดาวน์โหลด `PDF2Excel_vXXXXXXXX.zip` จาก [Releases](../../releases)
 2. แตกไฟล์ zip
 3. ดับเบิลคลิก **`PDF2Excel.exe`**
 4. คลิก **Browse** เลือกไฟล์ PDF
 5. ตั้งค่าตามต้องการ แล้วคลิก **Convert to Excel**
+
+**macOS**
+1. ดาวน์โหลด `PDF2Excel_mac_vXXXXXXXX.zip` จาก [Releases](../../releases)
+2. แตกไฟล์ zip
+3. ลาก **`PDF2Excel.app`** ไปไว้ใน Applications
+4. ดับเบิลคลิก **`PDF2Excel.app`**
+5. หาก Mac แจ้งเตือน "cannot be opened" → คลิกขวา → **Open** → **Open**
 
 ### ตัวเลือกใน GUI
 
@@ -95,17 +103,25 @@ python gui.py
 python pdf2excel.py input.pdf
 ```
 
-### สร้าง .exe เพื่อแจกทีม
+### สร้าง .exe / .app เพื่อแจกทีม
 
+**Windows** — สร้าง `.exe`
 ```bash
 # Clone มาไว้นอก OneDrive ก่อน (หลีกเลี่ยง permission error)
 cd C:\Projects
 git clone https://github.com/zalengcompe-a11y/PDF2Excel.git
 cd PDF2Excel
-
-# Build
 build.bat
-# ได้ไฟล์ PDF2Excel_vYYYYMMDD.zip — นำไปแจกทีมได้เลย
+# ได้ไฟล์ PDF2Excel_vYYYYMMDD.zip
+```
+
+**macOS** — สร้าง `.app`
+```bash
+git clone https://github.com/zalengcompe-a11y/PDF2Excel.git
+cd PDF2Excel
+chmod +x build_mac.sh
+./build_mac.sh
+# ได้ไฟล์ PDF2Excel_mac_vYYYYMMDD.zip
 ```
 
 ### Dependencies
@@ -138,11 +154,19 @@ Designed for Thai-language PDFs but works with any language.
 
 ### Usage (for team members — no Python required)
 
+**Windows**
 1. Download `PDF2Excel_vXXXXXXXX.zip` from [Releases](../../releases)
 2. Extract the zip file
 3. Double-click **`PDF2Excel.exe`**
 4. Click **Browse** to select a PDF file
 5. Configure options and click **Convert to Excel**
+
+**macOS**
+1. Download `PDF2Excel_mac_vXXXXXXXX.zip` from [Releases](../../releases)
+2. Extract the zip file
+3. Drag **`PDF2Excel.app`** to your Applications folder
+4. Double-click **`PDF2Excel.app`**
+5. If macOS shows "cannot be opened" → right-click → **Open** → **Open**
 
 ### GUI Options
 

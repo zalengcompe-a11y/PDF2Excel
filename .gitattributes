@@ -1,0 +1,13 @@
+# Force LF for shell scripts (Mac/Linux) — CRLF will break ./script.sh
+*.sh    text eol=lf
+
+# Windows batch files use CRLF
+*.bat   text eol=crlf
+
+# Python and text files — let Git decide per platform
+*.py    text
+*.md    text
+*.txt   text
+*.spec  text
+*.ini   text
+*.cfg   text

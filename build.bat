@@ -83,7 +83,6 @@ if exist "%DIST_DIR%\%DIST_NAME%" rd /s /q "%DIST_DIR%\%DIST_NAME%" 2>nul
 
 python -m PyInstaller PDF2Excel.spec --noconfirm ^
     --workpath "%WORK_DIR%\work" ^
-    --specpath "%~dp0" ^
     --distpath "%DIST_DIR%"
 
 if %ERRORLEVEL% NEQ 0 (
@@ -110,7 +109,7 @@ echo [5/5] Creating distributable zip...
 if exist "%ZIP_NAME%" del /f /q "%ZIP_NAME%"
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "Compress-Archive -Path 'dist\%DIST_NAME%' -DestinationPath '%ZIP_NAME%' -Force; Write-Host ('  Zip: ' + (Get-Item '%ZIP_NAME%').Length / 1MB).ToString('N1') + ' MB'"
+  "Compress-Archive -Path 'dist\%DIST_NAME%' -DestinationPath '%ZIP_NAME%' -Force; $mb = [math]::Round((Get-Item '%ZIP_NAME%').Length / 1MB, 1); Write-Host \"  Zip: $mb MB\""
 
 if %ERRORLEVEL% NEQ 0 (
     echo   WARNING: Could not create zip. The dist\ folder is still usable.

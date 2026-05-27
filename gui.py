@@ -22,7 +22,14 @@ _BTN_FG    = "#FFFFFF"
 _DONE_CLR  = "#217346"   # Excel green
 _ERR_CLR   = "#C00000"
 
-_THAI_FONTS = ["Leelawadee UI", "Leelawadee", "Tahoma", "TH Sarabun New"]
+_THAI_FONTS = [
+    # Windows
+    "Leelawadee UI", "Leelawadee", "Tahoma", "TH Sarabun New",
+    # macOS (รองรับ Thai ได้ดี)
+    "Thonburi", "Ayuthaya", "Krungthep", "Silom",
+    # fallback ทุก platform
+    "Arial Unicode MS", "Arial",
+]
 
 def _thai_font(size: int = 10, bold: bool = False) -> tuple:
     """Return the first available Thai-capable font on this system."""
@@ -317,7 +324,12 @@ class App(tk.Tk):
 
     def _open_output(self) -> None:
         if self._output_path:
-            subprocess.Popen(["explorer", "/select,", self._output_path])
+            if sys.platform == "win32":
+                subprocess.Popen(["explorer", "/select,", self._output_path])
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", "-R", self._output_path])
+            else:  # Linux
+                subprocess.Popen(["xdg-open", str(Path(self._output_path).parent)])
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
