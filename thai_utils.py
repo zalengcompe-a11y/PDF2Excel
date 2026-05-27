@@ -18,9 +18,10 @@ appear blank or garbled.
 Examples found in this PDF:
   U+F70B (21,105 occurrences) → ้  U+0E49  mai tho   (tone 2)
   U+F70A (10,307 occurrences) → ่  U+0E48  mai ek    (tone 1)
-  U+F710  (2,076 occurrences) → ็  U+0E47  mai taikhu
+  U+F706  (   ~5 occurrences) → ้  U+0E49  mai tho (ascending-consonant form: ป้, ฝ้, ฟ้)
+  U+F710  (2,076 occurrences) → ั  U+0E31  sara a (ascending-consonant form: ปัญหา, ฟังก์ชัน)
   U+F70E  (2,889 occurrences) → ์  U+0E4C  thanthakat (silent mark)
-  U+F712  (1,096 occurrences) → ่  U+0E48  mai ek (ascender form)
+  U+F712  (1,096 occurrences) → ็  U+0E47  mai taikhu (ascending-consonant form: เป็น)
   … and 11 other PUA alternates
 
 After applying the mapping below, ZERO PUA or unexpected non-Thai chars
@@ -56,7 +57,7 @@ _THAI_PUA_MAP: dict[int, str] = {
     0xF703: 'ี',  # ี  sara ii         (short)
     0xF704: 'ึ',  # ึ  sara ue         (short)
     0xF705: 'ื',  # ื  sara uee        (short)
-    0xF706: 'ุ',  # ุ  sara u below    (alternate)
+    0xF706: '้',  # ้  mai tho          (ascending-consonant form: ป้, ฝ้, ฟ้)
     0xF707: 'ู',  # ู  sara uu below   (alternate)
     0xF708: 'ุ',  # ุ  sara u          (2nd alternate)
     0xF709: 'ู',  # ู  sara uu         (2nd alternate)
@@ -66,9 +67,9 @@ _THAI_PUA_MAP: dict[int, str] = {
     0xF70D: '๋',  # ๋  mai jattawa     (short)
     0xF70E: '์',  # ์  thanthakat      (short)
     0xF70F: 'ฺ',  # ฺ  phinthu         (below dot)
-    0xF710: '็',  # ็  mai taikhu      (ascender form)
+    0xF710: 'ั',  # ั  sara a above    (ascending-consonant form: ปัญหา, ฟังก์ชัน)
     0xF711: 'ั',  # ั  sara a above   (ascender)
-    0xF712: '่',  # ่  mai ek          (ascender — 1,096 hits)
+    0xF712: '็',  # ็  mai taikhu      (ascending-consonant form: เป็น)
     0xF713: '้',  # ้  mai tho         (ascender)
     0xF714: '๊',  # ๊  mai tri         (ascender)
     0xF715: '๋',  # ๋  mai jattawa     (ascender)

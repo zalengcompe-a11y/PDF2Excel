@@ -26,17 +26,33 @@ class TestFixThaiOrder:
         """U+F70A → ่ U+0E48 mai ek"""
         assert fix_thai_order("") == "่"
 
-    def test_pua_f710_mai_taikhu(self):
-        """U+F710 → ็ U+0E47 mai taikhu (ascender form)"""
-        assert fix_thai_order("") == "็"
+    def test_pua_f710_sara_a_ascending(self):
+        """U+F710 → ั U+0E31 sara a (ascending-consonant form: ปัญหา, ฟังก์ชัน)"""
+        assert fix_thai_order("") == "ั"
 
     def test_pua_f70e_thanthakat(self):
         """U+F70E → ์ U+0E4C thanthakat"""
         assert fix_thai_order("") == "์"
 
-    def test_pua_f712_mai_ek_ascender(self):
-        """U+F712 → ่ U+0E48 mai ek (ascender form)"""
-        assert fix_thai_order("") == "่"
+    def test_pua_f712_mai_taikhu_ascending(self):
+        """U+F712 → ็ U+0E47 mai taikhu (ascending-consonant form: เป็น)"""
+        assert fix_thai_order("") == "็"
+
+    def test_pua_f706_mai_tho_ascending(self):
+        """U+F706 → ้ U+0E49 mai tho (ascending-consonant form: เป้าหมาย, แฟ้ม)"""
+        assert fix_thai_order("") == "้"
+
+    def test_word_pen_ascending(self):
+        """เป็น with PUA F712 (ascending maitaikhu above ป) is corrected."""
+        assert fix_thai_order("เปน") == "เป็น"
+
+    def test_word_panya_ascending(self):
+        """ปัญหา with PUA F710 (ascending sara a above ป) is corrected."""
+        assert fix_thai_order("ปญหา") == "ปัญหา"
+
+    def test_word_goal_ascending(self):
+        """เป้าหมาย with PUA F706 (ascending mai tho above ป) is corrected."""
+        assert fix_thai_order("เปาหมาย") == "เป้าหมาย"
 
     def test_all_pua_keys_map_to_thai_block(self):
         """Every PUA code point must resolve to a standard Thai character (U+0E00–U+0E7F)."""

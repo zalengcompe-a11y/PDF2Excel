@@ -39,6 +39,25 @@ def _is_list_item(line: str) -> bool:
     )
 
 
+def _smart_sep(left: str, right: str) -> str:
+    """
+    Return the correct separator when concatenating two text fragments.
+
+    Thai script has no word-boundary spaces; inserting a space between two Thai
+    characters that were split by a PDF line-wrap produces unnatural output.
+    When both the trailing char of *left* and the leading char of *right* are in
+    the Thai Unicode block (U+0E00–U+0E7F), join with an empty string.
+    Otherwise use a regular space.
+    """
+    if (
+        left and right
+        and "฀" <= left[-1] <= "๿"
+        and "฀" <= right[0] <= "๿"
+    ):
+        return ""
+    return " "
+
+
 def _join_cell_lines(lines: list[str]) -> str:
     """
     Join text lines extracted from a single PDF cell into a cell string.
@@ -48,20 +67,25 @@ def _join_cell_lines(lines: list[str]) -> str:
       OR a numbered prefix (1. / 2. / 1.1 / 2.3 / 1.1.1 …).
     - Each list item becomes a separate \\n-delimited group (→ Alt+Enter in Excel).
     - Lines that do NOT start a new item are treated as wrapped continuations
-      of the preceding group and are joined to it with a space.
-    - If no list markers are detected at all, fall back to joining with spaces
-      (plain paragraph / sentence text).
+      of the preceding group and are joined using _smart_sep (no space between
+      Thai characters, space otherwise).
+    - If no list markers are detected at all, fall back to smart-joining all lines.
 
     Examples:
       Bullet list  → "• item A\\n• item B"
       Numbered list→ "intro sentence\\n1. first item\\n1.1 sub-item\\n2. second"
-      Plain text   → "word1 word2 word3" (no newlines)
+      Plain Thai   → "เพื่อกำหนดแนวทางการดำเนินการโครงการตั้งแต่..." (no inserted spaces)
+      Plain Latin  → "word1 word2 word3" (space-joined)
     """
     if not lines:
         return ""
 
     if not any(_is_list_item(ln) for ln in lines):
-        return " ".join(lines)
+        # Plain text — smart-join consecutive lines
+        result = lines[0]
+        for ln in lines[1:]:
+            result += _smart_sep(result, ln) + ln
+        return result
 
     groups: list[str] = []
     current: str = ""
@@ -72,7 +96,10 @@ def _join_cell_lines(lines: list[str]) -> str:
             current = ln
         else:
             # Wrapped continuation of the current group
-            current = (current + " " + ln).strip() if current else ln
+            if current:
+                current = current + _smart_sep(current, ln) + ln
+            else:
+                current = ln
     if current:
         groups.append(current.strip())
 
