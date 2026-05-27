@@ -83,7 +83,7 @@ jobs:
       - name: Create zip
         run: |
           cd dist
-          zip -r ../PDF2Excel_mac.zip PDF2Excel.app -x "*.DS_Store"
+          zip -r -9 ../PDF2Excel_mac.zip PDF2Excel.app -x "*.DS_Store" -x "*/__pycache__/*" -x "*/test*"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2

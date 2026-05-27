@@ -49,11 +49,22 @@ a = Analysis(
     hookspath=[],
     runtime_hooks=[],
     excludes=[
+        # heavy data-science packages
         'matplotlib', 'numpy', 'pandas', 'scipy',
         'PIL', 'Pillow',
-        'IPython', 'jupyter',
-        'PyQt5', 'PyQt6', 'PySide2', 'PySide6',
-        'tensorflow', 'torch',
+        # interactive / notebook
+        'IPython', 'jupyter', 'notebook', 'ipykernel',
+        # GUI toolkits we don't use
+        'PyQt5', 'PyQt6', 'PySide2', 'PySide6', 'wx',
+        # ML frameworks
+        'tensorflow', 'torch', 'keras',
+        # unused stdlib
+        'unittest', 'email', 'html', 'http', 'xml',
+        'pydoc', 'doctest', 'difflib', 'calendar',
+        'ftplib', 'imaplib', 'poplib', 'smtplib',
+        'sqlite3', 'shelve', 'dbm',
+        'curses', 'readline', 'rlcompleter',
+        'setuptools', 'pip', 'pkg_resources',
     ],
     noarchive=False,
 )
@@ -67,7 +78,7 @@ exe = EXE(
     exclude_binaries=True,
     name='PDF2Excel',
     debug=False,
-    strip=False,
+    strip=True,     # strip debug symbols on macOS → ลดขนาดได้ ~20-30%
     upx=False,
     console=False,
 )
@@ -76,7 +87,7 @@ coll = COLLECT(
     exe,
     a.binaries,
     a.datas,
-    strip=False,
+    strip=True,     # strip debug symbols from all binaries
     upx=False,
     name='PDF2Excel',
 )
