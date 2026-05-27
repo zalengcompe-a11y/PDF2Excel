@@ -145,6 +145,9 @@ class PDFExtractor:
             rows = []
             for table in finder.tables:
                 table_rows = self._extract_table_sorted(page, table)
+                # Recover hyperlink columns missed by find_tables() when URL
+                # text overflows the table boundary (stored as PDF annotations)
+                table_rows = self._enrich_rows_with_links(page, table, table_rows)
                 for raw_row in table_rows:
                     cleaned = self._clean_row(raw_row)
                     if not any(cleaned):
@@ -221,6 +224,116 @@ class PDFExtractor:
         except AttributeError:
             # Older PyMuPDF: fall back to default table.extract()
             return table.extract()
+
+    @staticmethod
+    def _enrich_rows_with_links(
+        page: "fitz.Page",
+        table: "fitz.table.Table",
+        rows: list[list[str]],
+    ) -> list[list[str]]:
+        """
+        Append hyperlink URIs that fall within each table row but are NOT
+        captured in any existing cell text.
+
+        Root cause this solves:
+          find_tables() detects columns from visible borders/lines.  When a
+          column's content is a long URL stored as a PDF hyperlink annotation,
+          its text overflows the page width so find_tables() never sees a
+          column separator — the column is silently dropped.
+          page.get_links() always exposes those annotations regardless of
+          overflow, so we use it as a supplementary source.
+
+        Algorithm:
+          1. Collect all external-URL links on the page.
+          2. For each table row compute its Y extent from the cell rects.
+          3. Find links whose rect overlaps that Y extent AND whose URI is
+             not already present in any cell of that row.
+          4. Append the URI(s) as a new cell at the end of the row.
+          5. For the first row (header), try to find extra header text in
+             the area beyond the table's right edge at the same Y position.
+        """
+        try:
+            import fitz  # already imported wherever caller runs, but keep local
+        except ImportError:
+            return rows
+
+        url_links = [
+            lnk for lnk in page.get_links()
+            if lnk.get("kind") == 2 and lnk.get("uri")
+        ]
+        if not url_links or not rows:
+            return rows
+
+        # --- Y-extent per row ---
+        # row_obj.cells yields fitz.Rect objects or (x0,y0,x1,y1) tuples
+        # depending on PyMuPDF version — normalise to plain floats.
+        def _cell_y(r: "fitz.Rect | tuple") -> tuple[float, float]:
+            if hasattr(r, "y0"):
+                return float(r.y0), float(r.y1)
+            return float(r[1]), float(r[3])  # tuple: (x0,y0,x1,y1)
+
+        def _cell_x1(r: "fitz.Rect | tuple") -> float:
+            if hasattr(r, "x1"):
+                return float(r.x1)
+            return float(r[2])
+
+        row_y: list[tuple[float, float] | None] = []
+        for row_obj in table.rows:
+            rects = [r for r in row_obj.cells if r is not None]
+            if rects:
+                ys = [_cell_y(r) for r in rects]
+                row_y.append((min(y0 for y0, _ in ys), max(y1 for _, y1 in ys)))
+            else:
+                row_y.append(None)
+
+        # --- Collect extra URIs per row ---
+        extra: list[str] = []
+        any_found = False
+        for idx, yrange in enumerate(row_y):
+            if idx >= len(rows) or yrange is None:
+                extra.append("")
+                continue
+            y0, y1 = yrange
+            existing_text = " ".join(rows[idx])
+            seen: set[str] = set()
+            uris: list[str] = []
+            for lnk in url_links:
+                lr = lnk.get("from")
+                if lr is None:
+                    continue
+                uri = lnk["uri"]
+                if uri in seen:
+                    continue
+                if lr.y0 < y1 and lr.y1 > y0 and uri not in existing_text:
+                    seen.add(uri)
+                    uris.append(uri)
+            cell_val = " | ".join(uris) if uris else ""
+            if cell_val:
+                any_found = True
+            extra.append(cell_val)
+
+        if not any_found:
+            return rows
+
+        # --- Attempt to recover header text for the extra column ---
+        # Look for text beyond the table's right edge at the header row Y.
+        if row_y and row_y[0] is not None and not extra[0]:
+            try:
+                table_max_x = max(
+                    _cell_x1(r)
+                    for row_obj in table.rows
+                    for r in row_obj.cells
+                    if r is not None
+                )
+                y0_hdr, y1_hdr = row_y[0]
+                clip = fitz.Rect(table_max_x, y0_hdr - 5, page.rect.width, y1_hdr + 5)
+                extra_header = page.get_textbox(clip).strip()
+                if extra_header:
+                    extra[0] = extra_header
+            except Exception:
+                pass  # silently skip — header name is cosmetic
+
+        return [row + [e] for row, e in zip(rows, extra)]
 
     def _pymupdf_text_fallback(self, page) -> list[list[str]]:
         """Text fallback: assemble from rawdict, filtering rotated watermark spans."""
