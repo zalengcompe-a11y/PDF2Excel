@@ -10,6 +10,7 @@ Engine "pdfplumber"          — original engine; good for Latin PDFs with clear
 import io
 import logging
 import math
+import sys
 from pathlib import Path
 
 from tqdm import tqdm
@@ -120,7 +121,8 @@ class PDFExtractor:
 
         page_total = end_0 - start_0
         for i, page in enumerate(
-            tqdm(doc.pages(start_0, end_0), desc="Extracting", unit="page", total=page_total),
+            tqdm(doc.pages(start_0, end_0), desc="Extracting", unit="page", total=page_total,
+                 disable=sys.stdout is None),
             start=1,
         ):
             rows = self._pymupdf_page(page)
@@ -277,7 +279,8 @@ class PDFExtractor:
             )
 
             page_total = len(pages)
-            for i, page in enumerate(tqdm(pages, desc="Extracting", unit="page"), start=1):
+            for i, page in enumerate(tqdm(pages, desc="Extracting", unit="page",
+                                          disable=sys.stdout is None), start=1):
                 rows = self._pdfplumber_page(page)
                 if rows:
                     all_rows.extend(rows)
