@@ -13,6 +13,10 @@ on:
         required: true
         default: 'v1.0.0'
 
+# Allow workflow to create/update GitHub Releases and upload files
+permissions:
+  contents: write
+
 jobs:
   # ── Windows: build PDF2Excel.exe ───────────────────────────────────────────
   build-windows:
