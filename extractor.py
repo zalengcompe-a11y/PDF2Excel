@@ -10,6 +10,7 @@ Engine "pdfplumber"          — original engine; good for Latin PDFs with clear
 import io
 import logging
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -24,40 +25,53 @@ _WATERMARK_ANGLE_THRESHOLD = 5.0
 # Bullet/list markers: lines starting with these get \n separation in Excel cells.
 _BULLET_MARKERS: tuple[str, ...] = ("•", "◦", "○", "●", "▪", "▸", "►", "–", "—", "-")
 
+# Numbered list pattern: matches "1. ", "2. ", "1.1 ", "2.3 ", "1.1.1 " etc.
+# Requires a digit, at least one dot, optional trailing digits, then whitespace.
+# Does NOT match bare numbers like "2566" (no dot) or mid-sentence numbers.
+_NUMBERED_ITEM_RE = re.compile(r"^\d+\.\d*\s")
+
+
+def _is_list_item(line: str) -> bool:
+    """Return True if this line starts a new bullet or numbered list item."""
+    return (
+        any(line.startswith(m) for m in _BULLET_MARKERS)
+        or bool(_NUMBERED_ITEM_RE.match(line))
+    )
+
 
 def _join_cell_lines(lines: list[str]) -> str:
     """
     Join text lines extracted from a single PDF cell into a cell string.
 
     Strategy:
-    - If the cell contains bullet markers (•, -, etc.), treat each bullet
-      as a distinct item and separate them with \\n (→ Alt+Enter in Excel).
-      Lines that do NOT start with a bullet are wrapped continuations of the
-      preceding bullet item — they are joined with a space instead.
-    - If no bullets are detected, fall back to joining everything with spaces
-      (standard paragraph / sentence text).
+    - Detect list items: lines starting with a bullet marker (•, –, etc.)
+      OR a numbered prefix (1. / 2. / 1.1 / 2.3 / 1.1.1 …).
+    - Each list item becomes a separate \\n-delimited group (→ Alt+Enter in Excel).
+    - Lines that do NOT start a new item are treated as wrapped continuations
+      of the preceding group and are joined to it with a space.
+    - If no list markers are detected at all, fall back to joining with spaces
+      (plain paragraph / sentence text).
 
-    This preserves the original bullet list structure in Excel cells without
-    collapsing everything into a single unreadable line.
+    Examples:
+      Bullet list  → "• item A\\n• item B"
+      Numbered list→ "intro sentence\\n1. first item\\n1.1 sub-item\\n2. second"
+      Plain text   → "word1 word2 word3" (no newlines)
     """
     if not lines:
         return ""
 
-    has_bullet = any(
-        any(ln.startswith(m) for m in _BULLET_MARKERS) for ln in lines
-    )
-    if not has_bullet:
+    if not any(_is_list_item(ln) for ln in lines):
         return " ".join(lines)
 
     groups: list[str] = []
     current: str = ""
     for ln in lines:
-        if any(ln.startswith(m) for m in _BULLET_MARKERS):
+        if _is_list_item(ln):
             if current:
                 groups.append(current.strip())
             current = ln
         else:
-            # Wrapped continuation of the current bullet
+            # Wrapped continuation of the current group
             current = (current + " " + ln).strip() if current else ln
     if current:
         groups.append(current.strip())
