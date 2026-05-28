@@ -1,6 +1,6 @@
 name: Build & Release
 
-# Trigger: push a version tag  →  git tag v1.2.0 && git push origin v1.2.0
+# Trigger: push a version tag  →  git tag v2.0.0 && git push origin v2.0.0
 # Or: run manually from GitHub Actions tab
 on:
   push:
@@ -9,16 +9,16 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g. v1.2.0)'
+        description: 'Version tag (e.g. v2.0.0)'
         required: true
-        default: 'v1.0.0'
+        default: 'v2.0.0'
 
 # Allow workflow to create/update GitHub Releases and upload files
 permissions:
   contents: write
 
 jobs:
-  # ── Windows: build PDF2Excel.exe ───────────────────────────────────────────
+  # ── Windows: build PDF2Office.exe ─────────────────────────────────────────
   build-windows:
     name: Build Windows (.exe)
     runs-on: windows-latest
@@ -42,21 +42,21 @@ jobs:
       - name: Build .exe with PyInstaller
         run: >
           python -m PyInstaller PDF2Excel.spec --noconfirm
-          --workpath "$env:TEMP\PDF2Excel_build\work"
+          --workpath "$env:TEMP\PDF2Office_build\work"
           --distpath dist
 
       - name: Create zip
-        run: Compress-Archive -Path dist\PDF2Excel -DestinationPath PDF2Excel_windows.zip -Force
+        run: Compress-Archive -Path dist\PDF2Office -DestinationPath PDF2Office_windows.zip -Force
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: PDF2Excel_windows.zip
+          files: PDF2Office_windows.zip
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ── macOS: build PDF2Excel.app ─────────────────────────────────────────────
+  # ── macOS: build PDF2Office.app ────────────────────────────────────────────
   build-macos:
     name: Build macOS (.app)
     runs-on: macos-latest
@@ -83,12 +83,12 @@ jobs:
       - name: Create zip
         run: |
           cd dist
-          zip -r -9 ../PDF2Excel_mac.zip PDF2Excel.app -x "*.DS_Store" -x "*/__pycache__/*" -x "*/test*"
+          zip -r -9 ../PDF2Office_mac.zip PDF2Office.app -x "*.DS_Store" -x "*/__pycache__/*" -x "*/test*"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: PDF2Excel_mac.zip
+          files: PDF2Office_mac.zip
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
