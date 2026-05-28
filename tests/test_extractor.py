@@ -165,7 +165,9 @@ class TestCellTextBoundaryFilter:
         class R:
             pass
         r = R()
+        r.x0 = 0.0
         r.y0 = y0
+        r.x1 = 200.0
         r.y1 = y1
         return r
 

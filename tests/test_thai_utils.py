@@ -114,6 +114,70 @@ class TestFixThaiOrder:
             assert chr(cp) not in result, f"U+{cp:04X} still present after fix"
 
 
+class TestFontCmapGarbling:
+    """
+    Tests for the font-CMap garbling recovery in fix_thai_order (Step 3).
+
+    Some Thai PDFs use composite glyphs whose ToUnicode CMap omits
+    sara-uu (ู U+0E39) or do-dek (ด U+0E14), producing invalid sequences.
+    Two targeted patterns are corrected:
+      1. ผ + ้ + consonant/leading-vowel  →  ผู้ + ...
+      2. ไ + ้  →  ได้
+    """
+
+    # ── Pattern 1: missing sara-uu after pho-phueng ───────────────────────
+
+    def test_pho_mai_tho_before_consonant_gets_sara_uu(self):
+        """ผ้ท… should become ผู้ท… (missing ู recovered)."""
+        assert fix_thai_order("ผ้ที่เกี่ยวข้อง") == "ผู้ที่เกี่ยวข้อง"
+
+    def test_pho_mai_tho_before_second_consonant(self):
+        """ผ้ป… should become ผู้ป… (evaluator / BPO label)."""
+        assert fix_thai_order("ผ้ประเมิน") == "ผู้ประเมิน"
+
+    def test_pho_mai_tho_before_leading_vowel(self):
+        """ผ้เ… should become ผู้เ… (sara-e as leading vowel)."""
+        assert fix_thai_order("ผ้เข้ารับ") == "ผู้เข้ารับ"
+
+    def test_pho_mai_tho_before_sara_aa_unchanged(self):
+        """ผ้า (fabric) must NOT be changed to ผู้า — า is a valid suffix."""
+        assert fix_thai_order("ผ้า") == "ผ้า"
+
+    def test_pho_mai_tho_in_fabric_word_unchanged(self):
+        """ผ้าไหม (silk) must pass through unchanged."""
+        assert fix_thai_order("ผ้าไหม") == "ผ้าไหม"
+
+    def test_already_correct_pho_sara_uu_unchanged(self):
+        """ผู้ (already has ู) must not be double-fixed."""
+        assert fix_thai_order("ผู้ที่เกี่ยวข้อง") == "ผู้ที่เกี่ยวข้อง"
+
+    # ── Pattern 2: missing do-dek in ได้ ──────────────────────────────────
+
+    def test_sara_ai_maimalai_with_mai_tho_becomes_dai(self):
+        """ไ้ (impossible in Thai) is always garbled ได้."""
+        assert fix_thai_order("ไ้ ข้อมูล") == "ได้ ข้อมูล"
+
+    def test_sara_ai_maimalai_alone_becomes_dai(self):
+        """ไ้ alone → ได้."""
+        assert fix_thai_order("ไ้") == "ได้"
+
+    def test_sara_ai_in_word_sarai_unchanged(self):
+        """ไม่ (no/not) has no tone mark on ไ — must not be touched."""
+        assert fix_thai_order("ไม่") == "ไม่"
+
+    def test_sara_ai_maimalai_in_phai_word_unchanged(self):
+        """ไป (to go) — ไ followed by consonant, no tone mark on ไ."""
+        assert fix_thai_order("ไป") == "ไป"
+
+    # ── Combined / integration ────────────────────────────────────────────
+
+    def test_both_patterns_in_one_string(self):
+        """Both patterns fixed in a single string."""
+        garbled  = "ผ้ที่ไ้รับ"    # garbled "ผู้ที่ได้รับ"
+        expected = "ผู้ที่ได้รับ"
+        assert fix_thai_order(garbled) == expected
+
+
 class TestFixThaiRow:
     """Tests for fix_thai_row (applies fix_thai_order to every cell)."""
 

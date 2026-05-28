@@ -40,6 +40,7 @@ Microsoft Thai font PUA encoding:
 Unicode Technical Note #21 — Additional Thai Characters
 """
 
+import re
 import unicodedata
 
 
@@ -85,6 +86,49 @@ _THAI_PUA_MAP: dict[int, str] = {
 _PUA_TRANSLATE = str.maketrans(_THAI_PUA_MAP)
 
 
+# ── Font-CMap garbling recovery ───────────────────────────────────────────────
+# Some Thai PDFs use ligature/composite glyphs whose ToUnicode CMap omits one
+# of the combining characters.  Two patterns recur in Microsoft-font-based PDFs:
+#
+# 1.  ผ + ้  + consonant/leading-vowel  →  ผู้ + consonant/leading-vowel
+#     Thai consonants: U+0E01–U+0E2E (ก–ฮ)
+#     Thai leading vowels: เ แ โ ใ ไ (U+0E40–U+0E44)
+#     The sara-uu (ู U+0E39) was present in the source document but was not
+#     mapped in the font's ToUnicode CMap, so text extraction omits it.
+#     Guard: we only insert ู when the character AFTER ้ is a consonant or
+#     leading vowel — never when it is า (U+0E32) because ผ้า (fabric) is a
+#     valid Thai word.
+#
+# 2.  ไ + ้  →  ได้
+#     ไ (sara ai maimalai, U+0E44) is a LEADING vowel; tone marks attach to
+#     the following consonant, never to ไ directly.  The sequence ไ + ้ is
+#     therefore always a sign that ด (U+0E14, do dek) was dropped by the CMap.
+#     ได้ (can / has obtained) is by far the most common Thai word with this
+#     pattern.
+
+# Thai consonants range U+0E01–U+0E2E, leading vowels U+0E40–U+0E44
+_RE_PHO_MAI_THO = re.compile(
+    r"ผ้(?=[ก-ฮเ-ไ])"
+)
+
+# ไ immediately followed by mai tho → always garbled ได้
+_RE_SAI_MAI_THO = re.compile(r"ไ้")
+
+
+def _fix_font_cmap_garbling(text: str) -> str:
+    """
+    Recover characters dropped by incomplete ToUnicode CMap in Thai PDFs.
+
+    Applied AFTER PUA mapping and NFC so all characters are in standard form.
+    Two targeted patterns only — no broad heuristics that could corrupt text.
+    """
+    # Pattern 1: ผ้[consonant/leading-vowel] → ผู้[consonant/leading-vowel]
+    text = _RE_PHO_MAI_THO.sub("ผู้", text)
+    # Pattern 2: ไ้ → ได้
+    text = _RE_SAI_MAI_THO.sub("ได้", text)
+    return text
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def fix_thai_order(text: str) -> str:
@@ -94,6 +138,7 @@ def fix_thai_order(text: str) -> str:
     Steps:
     1. Replace PUA alternate forms (U+F700–U+F71B) with standard Thai chars.
     2. Apply Unicode NFC normalisation to compose combining characters.
+    3. Recover characters dropped by incomplete font ToUnicode CMap entries.
 
     Safe to call on non-Thai / mixed-language text — only the PUA range is
     remapped; all other characters pass through unchanged.
@@ -103,7 +148,9 @@ def fix_thai_order(text: str) -> str:
     # Step 1 — PUA → standard Thai (uses str.translate for speed)
     text = text.translate(_PUA_TRANSLATE)
     # Step 2 — NFC: Thai tone marks (cc=107) won't cross cc=0 boundaries
-    return unicodedata.normalize('NFC', text)
+    text = unicodedata.normalize('NFC', text)
+    # Step 3 — recover glyphs omitted by incomplete font CMap
+    return _fix_font_cmap_garbling(text)
 
 
 def fix_thai_row(row: list[str]) -> list[str]:

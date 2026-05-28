@@ -22,6 +22,17 @@ from thai_utils import fix_thai_order
 # Content text is 0°; diagonal watermarks are typically 30°–60°.
 _WATERMARK_ANGLE_THRESHOLD = 5.0
 
+# Thai diacritics (sara i, mai tho, mai taikhu, etc.) are positioned ABOVE their
+# base consonant baseline.  When a cell's top boundary cuts right through the
+# diacritic zone, a hard clip excludes those glyph bboxes and the characters are
+# lost entirely from the rawdict — leaving just bare consonants.
+# Solution: expand the rawdict clip UPWARD by this many points before fetching,
+# so diacritics of the first data line in a cell are always captured; the
+# line-level boundary filter (center_y / origin_y) still excludes actual lines
+# from the row above.  15 pt covers the tallest stacked diacritic in TH Sarabun
+# at typical document font sizes (10–14 pt).
+_DIACRITIC_CLIP_MARGIN = 15.0
+
 # Bullet/list markers: lines starting with these get \n separation in Excel cells.
 _BULLET_MARKERS: tuple[str, ...] = ("•", "◦", "○", "●", "▪", "▸", "►", "–", "—", "-")
 
@@ -325,11 +336,35 @@ class PDFExtractor:
              falls below the cell bottom (glyphs from the next row whose cap
              height overlaps the current cell).
         """
-        # Cell y bounds — support both fitz.Rect and plain tuple
-        cell_y0: float = cell_rect.y0 if hasattr(cell_rect, "y0") else cell_rect[1]
-        cell_y1: float = cell_rect.y1 if hasattr(cell_rect, "y1") else cell_rect[3]
+        # Cell bounds — support fitz.Rect (attrs), plain tuple, or any rect-like.
+        def _f(obj, attr: str, idx: int) -> float:
+            if hasattr(obj, attr):
+                return float(getattr(obj, attr))
+            try:
+                return float(obj[idx])
+            except (TypeError, IndexError):
+                return 0.0
 
-        data = page.get_text("rawdict", clip=cell_rect, sort=True)
+        cell_x0: float = _f(cell_rect, "x0", 0)
+        cell_y0: float = _f(cell_rect, "y0", 1)
+        cell_x1: float = _f(cell_rect, "x1", 2)
+        cell_y1: float = _f(cell_rect, "y1", 3)
+
+        # Expand the rawdict clip upward so Thai diacritics (sara i, mai tho,
+        # etc.) positioned ABOVE the cell's top boundary are still captured.
+        # Without this, a hard clip at cell_y0 truncates diacritic glyph bboxes
+        # that sit in the zone above the baseline, stripping them from the result
+        # and leaving bare consonants (e.g. "เงนได" instead of "เงินได้").
+        # The line-level boundary filter below still discards entire lines from
+        # the row above, so accuracy is preserved.
+        try:
+            import fitz as _fitz
+            expanded_clip = _fitz.Rect(cell_x0, cell_y0 - _DIACRITIC_CLIP_MARGIN,
+                                       cell_x1, cell_y1)
+        except Exception:
+            expanded_clip = cell_rect  # fall back to original clip on any error
+
+        data = page.get_text("rawdict", clip=expanded_clip, sort=True)
         lines_out: list[str] = []
 
         for block in data.get("blocks", []):
