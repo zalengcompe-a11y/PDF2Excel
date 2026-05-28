@@ -313,7 +313,22 @@ class PDFExtractor:
           Thai characters are included as decoded by PyMuPDF.
         - sort=True orders characters by X position so Thai leading vowels
           (visually left of their consonant) come first → correct Unicode order.
+
+        Boundary filter (prevents cross-row glyph bleed):
+        - PyMuPDF's clip= uses glyph bounding-box overlap, so glyphs from the
+          adjacent row can appear if their visual extent crosses the cell border.
+        - Two conditions must BOTH hold to keep a line:
+          1. line_center_y >= cell_y0  — excludes lines whose visual center is
+             above the cell top (e.g. descender of the last header word bleeds
+             into the first data row, or a line sits just above the boundary).
+          2. line_origin_y <= cell_y1  — excludes lines whose text baseline
+             falls below the cell bottom (glyphs from the next row whose cap
+             height overlaps the current cell).
         """
+        # Cell y bounds — support both fitz.Rect and plain tuple
+        cell_y0: float = cell_rect.y0 if hasattr(cell_rect, "y0") else cell_rect[1]
+        cell_y1: float = cell_rect.y1 if hasattr(cell_rect, "y1") else cell_rect[3]
+
         data = page.get_text("rawdict", clip=cell_rect, sort=True)
         lines_out: list[str] = []
 
@@ -325,6 +340,25 @@ class PDFExtractor:
                 angle  = abs(math.degrees(math.atan2(-dy, dx)))
                 if angle > _WATERMARK_ANGLE_THRESHOLD:
                     continue                     # ← skip watermark
+
+                # ── boundary filter ──────────────────────────────────────────
+                lbbox    = line.get("bbox", [0.0, 0.0, 0.0, 0.0])
+                center_y = (lbbox[1] + lbbox[3]) / 2.0
+
+                # Baseline (origin y) of the first character in the line
+                all_chars = [
+                    ch
+                    for span in line.get("spans", [])
+                    for ch in span.get("chars", [])
+                ]
+                if not all_chars:
+                    continue
+                origin_y = all_chars[0].get("origin", (0.0, 0.0))[1]
+
+                if center_y < cell_y0 or origin_y > cell_y1:
+                    continue                     # ← outside cell boundaries
+                # ─────────────────────────────────────────────────────────────
+
                 span_texts: list[str] = []
                 for span in line.get("spans", []):
                     span_texts.append(

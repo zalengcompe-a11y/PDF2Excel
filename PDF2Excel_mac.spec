@@ -106,8 +106,8 @@ app = BUNDLE(
     info_plist={
         'CFBundleName':             'PDF2Office',
         'CFBundleDisplayName':      'PDF2Office',
-        'CFBundleShortVersionString': '2.0.0',
-        'CFBundleVersion':          '2.0.0',
+        'CFBundleShortVersionString': '2.0.1',
+        'CFBundleVersion':          '2.0.1',
         'NSHighResolutionCapable':  True,
         'LSMinimumSystemVersion':   '10.13.0',
     },

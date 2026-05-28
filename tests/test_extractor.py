@@ -126,3 +126,106 @@ class TestSkipRows:
         e = _make_extractor(skip_rows=0)
         rows = [["h1"], ["d1"], ["d2"]]
         assert rows[e.skip_rows:] == rows
+
+
+class TestCellTextBoundaryFilter:
+    """
+    Verify that _cell_text() excludes lines whose visual center sits above the
+    cell top (header/row bleed-in) or whose baseline sits below the cell bottom
+    (next-row glyph bleed-in).
+
+    A lightweight FakePage replaces the real fitz.Page so no PDF is required.
+    """
+
+    class FakePage:
+        """Minimal fitz.Page stub: get_text returns a pre-built rawdict."""
+
+        def __init__(self, rawdict_data: dict) -> None:
+            self._data = rawdict_data
+
+        def get_text(self, mode: str, clip=None, sort: bool = False) -> dict:  # noqa: ARG002
+            return self._data
+
+    @staticmethod
+    def _make_rawdict(lines: list[dict]) -> dict:
+        """Wrap a list of line dicts into a minimal rawdict structure."""
+        return {"blocks": [{"type": 0, "lines": lines}]}
+
+    @staticmethod
+    def _make_line(origin_y: float, bbox_y0: float, bbox_y1: float, text: str) -> dict:
+        chars = [{"c": ch, "origin": (10.0 + i * 6, origin_y)} for i, ch in enumerate(text)]
+        return {
+            "dir": (1.0, 0.0),
+            "bbox": [10.0, bbox_y0, 100.0, bbox_y1],
+            "spans": [{"chars": chars}],
+        }
+
+    def _cell_rect(self, y0: float, y1: float):
+        """Return a simple namespace that acts like fitz.Rect."""
+        class R:
+            pass
+        r = R()
+        r.y0 = y0
+        r.y1 = y1
+        return r
+
+    # ── tests ────────────────────────────────────────────────────────────────
+
+    def test_line_inside_cell_is_kept(self):
+        """Normal line well inside the cell bounds must be returned."""
+        line = self._make_line(origin_y=120.0, bbox_y0=111.0, bbox_y1=122.0, text="Hello")
+        page = self.FakePage(self._make_rawdict([line]))
+        result = PDFExtractor._cell_text(page, self._cell_rect(100.0, 200.0))
+        assert "Hello" in result
+
+    def test_line_center_above_cell_top_is_excluded(self):
+        """
+        A line whose visual center is above cell_y0 must be excluded.
+        Simulates 'p' from a header row bleeding into the first data cell:
+          - cell_y0 = 101.49
+          - line bbox = (94, 107)  → center = 100.5  < 101.49  → excluded
+        """
+        line = self._make_line(origin_y=101.04, bbox_y0=94.0, bbox_y1=107.0, text="p")
+        page = self.FakePage(self._make_rawdict([line]))
+        result = PDFExtractor._cell_text(page, self._cell_rect(101.49, 251.0))
+        assert "p" not in result
+
+    def test_line_center_at_cell_top_is_kept(self):
+        """
+        A line whose center exactly equals cell_y0 is on the boundary and kept.
+        """
+        # center_y = (100.0 + 104.0) / 2 = 102.0, cell_y0 = 102.0
+        line = self._make_line(origin_y=103.0, bbox_y0=100.0, bbox_y1=104.0, text="X")
+        page = self.FakePage(self._make_rawdict([line]))
+        result = PDFExtractor._cell_text(page, self._cell_rect(102.0, 200.0))
+        assert "X" in result
+
+    def test_line_baseline_below_cell_bottom_is_excluded(self):
+        """
+        A line whose baseline (origin_y) exceeds cell_y1 must be excluded.
+        Simulates 'M', 'd', 'l' cap-heights bleeding up into the cell above.
+          - cell_y1 = 316.68
+          - line origin_y = 320.04  > 316.68  → excluded
+        """
+        line = self._make_line(origin_y=320.04, bbox_y0=313.0, bbox_y1=323.0, text="M")
+        page = self.FakePage(self._make_rawdict([line]))
+        result = PDFExtractor._cell_text(page, self._cell_rect(289.56, 316.68))
+        assert "M" not in result
+
+    def test_line_just_inside_bottom_is_kept(self):
+        """A line whose baseline is exactly at cell_y1 is kept (inclusive)."""
+        line = self._make_line(origin_y=200.0, bbox_y0=190.0, bbox_y1=201.0, text="Z")
+        page = self.FakePage(self._make_rawdict([line]))
+        result = PDFExtractor._cell_text(page, self._cell_rect(100.0, 200.0))
+        assert "Z" in result
+
+    def test_multiple_lines_partial_exclusion(self):
+        """Only out-of-bounds lines are removed; valid lines remain intact."""
+        line_bad_top    = self._make_line(101.04, 94.0,  107.0, "BAD_TOP")
+        line_good       = self._make_line(150.0,  141.0, 155.0, "GOOD")
+        line_bad_bottom = self._make_line(252.0,  244.0, 256.0, "BAD_BOT")
+        page = self.FakePage(self._make_rawdict([line_bad_top, line_good, line_bad_bottom]))
+        result = PDFExtractor._cell_text(page, self._cell_rect(101.49, 251.0))
+        assert "GOOD" in result
+        assert "BAD_TOP" not in result
+        assert "BAD_BOT" not in result

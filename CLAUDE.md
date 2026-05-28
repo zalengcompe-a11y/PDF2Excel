@@ -4,7 +4,7 @@
 
 - โปรเจคนี้เป็น **cross-platform PDF→Excel converter** รองรับภาษาไทย
 - GitHub: https://github.com/zalengcompe-a11y/PDF2Excel (public, MIT)
-- Latest release: v1.4.0
+- Latest release: v2.0.1
 - **อย่าแนะนำให้เริ่มใหม่** — architecture ทำงานได้ดีแล้ว ให้ต่อยอดจากของเดิม
 
 ## Architecture (6 ไฟล์หลัก)
@@ -16,7 +16,7 @@
 | `extractor.py` | PDF extraction (pymupdf default, pdfplumber fallback) |
 | `formatter.py` | Excel output (openpyxl) |
 | `thai_utils.py` | Thai PUA encoding fix (U+F700–U+F71B → standard Thai) |
-| `tests/` | 59 pytest tests, all passing |
+| `tests/` | 87 pytest tests, all passing |
 
 ## ก่อนแก้โค้ด
 
