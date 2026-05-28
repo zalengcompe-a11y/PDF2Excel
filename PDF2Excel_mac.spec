@@ -25,6 +25,11 @@ for _pkg in ('openpyxl', 'et_xmlfile'):
     _d, _b, _h = collect_all(_pkg)
     datas += _d; binaries += _b; hiddenimports += _h
 
+# ── python-docx — needs its template .docx bundled ───────────────────────────
+for _pkg in ('docx',):
+    _d, _b, _h = collect_all(_pkg)
+    datas += _d; binaries += _b; hiddenimports += _h
+
 try:
     _d, _b, _h = collect_all('cryptography')
     datas += _d; binaries += _b; hiddenimports += _h
@@ -38,7 +43,7 @@ a = Analysis(
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports + [
-        'extractor', 'formatter', 'thai_utils',
+        'extractor', 'formatter', 'formatter_word', 'thai_utils',
         'tkinter', 'tkinter.ttk', 'tkinter.filedialog',
         'tkinter.messagebox', 'tkinter.font',
         'openpyxl', 'openpyxl.cell._writer',
@@ -76,7 +81,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='PDF2Excel',
+    name='PDF2Office',
     debug=False,
     strip=True,     # strip debug symbols on macOS → ลดขนาดได้ ~20-30%
     upx=False,
@@ -89,20 +94,20 @@ coll = COLLECT(
     a.datas,
     strip=True,     # strip debug symbols from all binaries
     upx=False,
-    name='PDF2Excel',
+    name='PDF2Office',
 )
 
 # ── Mac .app bundle ───────────────────────────────────────────
 app = BUNDLE(
     coll,
-    name='PDF2Excel.app',
+    name='PDF2Office.app',
     icon=None,              # เพิ่ม icon.icns ถ้ามี
-    bundle_identifier='com.pdf2excel.converter',
+    bundle_identifier='com.pdf2office.converter',
     info_plist={
-        'CFBundleName':             'PDF2Excel',
-        'CFBundleDisplayName':      'PDF to Excel Converter',
-        'CFBundleShortVersionString': '1.0.0',
-        'CFBundleVersion':          '1.0.0',
+        'CFBundleName':             'PDF2Office',
+        'CFBundleDisplayName':      'PDF2Office',
+        'CFBundleShortVersionString': '2.0.0',
+        'CFBundleVersion':          '2.0.0',
         'NSHighResolutionCapable':  True,
         'LSMinimumSystemVersion':   '10.13.0',
     },

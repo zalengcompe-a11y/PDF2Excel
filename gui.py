@@ -48,7 +48,7 @@ class App(tk.Tk):
 
     def __init__(self) -> None:
         super().__init__()
-        self.title("PDF to Excel Converter")
+        self.title("PDF2Office")
         self.resizable(False, False)
         self.configure(bg=_BG)
 
@@ -112,7 +112,9 @@ class App(tk.Tk):
         # ── Header ────────────────────────────────────────────────────────────
         hdr = ttk.Frame(self)
         hdr.grid(row=0, column=0, sticky="ew", padx=18, pady=(16, 4))
-        ttk.Label(hdr, text="PDF to Excel Converter", style="Header.TLabel").pack(side="left")
+        ttk.Label(hdr, text="PDF2Office", style="Header.TLabel").pack(side="left")
+        ttk.Label(hdr, text="  PDF → Excel & Word", foreground="#888888",
+                  font=_thai_font(10)).pack(side="left", pady=(4, 0))
 
         # ── File picker ───────────────────────────────────────────────────────
         f_file = ttk.LabelFrame(self, text=" PDF File ")
@@ -148,10 +150,21 @@ class App(tk.Tk):
         ttk.Spinbox(f_opt, from_=0, to=99, textvariable=self._skip_var, width=7) \
             .grid(row=1, column=1, sticky="w", padx=(0,16), pady=(4,8))
 
-        ttk.Label(f_opt, text="Sheet name:").grid(row=1, column=2, sticky="w", padx=(0,4))
+        self._sheet_lbl = ttk.Label(f_opt, text="Sheet name:")
+        self._sheet_lbl.grid(row=1, column=2, sticky="w", padx=(0,4))
         self._sheet_var = tk.StringVar(value="Data")
-        ttk.Entry(f_opt, textvariable=self._sheet_var, width=18) \
-            .grid(row=1, column=3, columnspan=2, sticky="w", pady=(4,8))
+        self._sheet_entry = ttk.Entry(f_opt, textvariable=self._sheet_var, width=18)
+        self._sheet_entry.grid(row=1, column=3, columnspan=2, sticky="w", pady=(4,8))
+
+        # Row 2 — output format
+        ttk.Label(f_opt, text="Output format:").grid(row=2, column=0, sticky="w", padx=(8,4), pady=(4,8))
+        self._fmt_var = tk.StringVar(value="xlsx")
+        fmt_frame = ttk.Frame(f_opt)
+        fmt_frame.grid(row=2, column=1, columnspan=4, sticky="w", pady=(4,8))
+        ttk.Radiobutton(fmt_frame, text="Excel (.xlsx)", variable=self._fmt_var,
+                        value="xlsx", command=self._on_format_change).pack(side="left", padx=(0,16))
+        ttk.Radiobutton(fmt_frame, text="Word (.docx)", variable=self._fmt_var,
+                        value="docx", command=self._on_format_change).pack(side="left")
 
         # ── Convert button ────────────────────────────────────────────────────
         self._btn = ttk.Button(
@@ -160,6 +173,7 @@ class App(tk.Tk):
             command=self._start_conversion,
         )
         self._btn.grid(row=3, column=0, sticky="ew", padx=18, pady=(10, 4), ipady=2)
+
 
         # ── Progress bar ──────────────────────────────────────────────────────
         self._progress = ttk.Progressbar(self, orient="horizontal", mode="determinate")
@@ -231,18 +245,21 @@ class App(tk.Tk):
         thread = threading.Thread(
             target=self._run_conversion,
             args=(Path(self._file_var.get()), start, end, skip,
-                  self._sheet_var.get() or "Data"),
+                  self._sheet_var.get() or "Data", self._fmt_var.get()),
             daemon=True,
         )
         thread.start()
 
-    def _run_conversion(self, input_path: Path, start: int, end, skip: int, sheet: str) -> None:
+    def _run_conversion(self, input_path: Path, start: int, end, skip: int,
+                        sheet: str, fmt: str) -> None:
         """Runs in background thread — communicates via self._q."""
         try:
             from extractor import PDFExtractor
             from formatter import ExcelFormatter
+            from formatter_word import WordFormatter
 
-            output_path = input_path.with_suffix(".xlsx")
+            suffix = ".docx" if fmt == "docx" else ".xlsx"
+            output_path = input_path.with_suffix(suffix)
 
             def on_progress(current: int, total: int) -> None:
                 self._q.put(("progress", current, total))
@@ -261,12 +278,17 @@ class App(tk.Tk):
                 self._q.put(("error", "No data extracted.\nPlease check that the PDF contains selectable (non-scanned) text."))
                 return
 
-            self._q.put(("status", f"Writing {len(rows):,} rows to Excel..."))
-            formatter = ExcelFormatter(sheet_name=sheet)
+            fmt_label = "Word" if fmt == "docx" else "Excel"
+            self._q.put(("status", f"Writing {len(rows):,} rows to {fmt_label}..."))
+
+            if fmt == "docx":
+                formatter = WordFormatter()
+            else:
+                formatter = ExcelFormatter(sheet_name=sheet)
             formatter.write(rows)
             formatter.save(output_path)
 
-            self._q.put(("done", str(output_path), len(rows)))
+            self._q.put(("done", str(output_path), len(rows), fmt))
 
         except Exception as exc:
             self._q.put(("error", traceback.format_exc()))
@@ -289,19 +311,25 @@ class App(tk.Tk):
                     self._set_status(msg[1], color=_ACCENT)
 
                 elif kind == "done":
-                    _, out_path, row_count = msg
+                    _, out_path, row_count, fmt = msg
                     self._output_path = out_path
                     self._progress.stop()
                     self._progress.configure(mode="determinate", maximum=100, value=100)
                     self._btn.state(["!disabled"])
                     self._running = False
                     name = Path(out_path).name
+                    fmt_label = "Word" if fmt == "docx" else "Excel"
                     self._set_status(
                         f"Done!  {row_count:,} rows saved to  {name}",
                         color=_DONE_CLR,
                     )
+                    self._open_btn.configure(
+                        text=f"Open {fmt_label} File"
+                    )
                     self._open_btn.grid(row=6, column=0, sticky="ew",
                                         padx=18, pady=(0, 16), ipady=2)
+                    if fmt == "docx" and sys.platform == "darwin":
+                        self.after(600, self._show_mac_font_warning)
 
                 elif kind == "error":
                     self._progress.stop()
@@ -317,6 +345,25 @@ class App(tk.Tk):
         self.after(80, self._poll)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    def _on_format_change(self) -> None:
+        """Update button label and sheet-name field when format radio changes."""
+        is_excel = self._fmt_var.get() == "xlsx"
+        self._btn.configure(text="Convert to Excel" if is_excel else "Convert to Word")
+        state = "normal" if is_excel else "disabled"
+        self._sheet_entry.configure(state=state)
+        self._sheet_lbl.configure(foreground="#333333" if is_excel else "#AAAAAA")
+
+    def _show_mac_font_warning(self) -> None:
+        """Remind macOS users to set Thai font if needed."""
+        messagebox.showinfo(
+            "Thai Font — macOS",
+            "ไฟล์ Word ถูกสร้างแล้ว ✓\n\n"
+            "หาก font ภาษาไทยแสดงผิด ให้:\n"
+            "  1. เลือกข้อความทั้งหมด (⌘A)\n"
+            "  2. เปลี่ยน font เป็น  Thonburi  หรือ  TH Sarabun New\n\n"
+            "Font ที่ฝังไว้ในไฟล์: TH Sarabun New",
+        )
 
     def _set_status(self, text: str, color: str = "#333333") -> None:
         self._status_var.set(text)
