@@ -1,4 +1,4 @@
-# PDF2Excel — แปลง PDF เป็น Excel
+# PDF2Office — แปลง PDF เป็น Excel หรือ Word
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
@@ -11,12 +11,14 @@
 
 ### เกี่ยวกับโปรแกรม
 
-เครื่องมือแปลงไฟล์ PDF ที่มีตารางข้อมูล (รองรับภาษาไทย) ให้เป็นไฟล์ Excel (.xlsx)  
+เครื่องมือแปลงไฟล์ PDF ที่มีตารางข้อมูล (รองรับภาษาไทย) ให้เป็น Excel (.xlsx) หรือ Word (.docx)  
 รองรับ PDF ที่มีข้อความแบบ selectable (ไม่ใช่ PDF ที่ scan มาเป็นรูปภาพ)
 
 ### คุณสมบัติหลัก
 
 - ✅ รองรับภาษาไทย — แก้ปัญหา font encoding แบบ Microsoft PUA (Angsana / Cordia / Browallia)
+- ✅ Export ได้ 2 format — Excel (.xlsx) หรือ Word (.docx) เลือกได้ใน GUI และ CLI
+- ✅ Word output — A4 landscape, Thai font ครบ, soft break ใน cell, header สวยงาม
 - ✅ กรองลายน้ำออกอัตโนมัติ — ตรวจจับข้อความที่หมุนเอียง (watermark) แล้วตัดออก
 - ✅ ชื่อไฟล์ภาษาไทย — เปิดไฟล์ PDF ที่ตั้งชื่อเป็นภาษาไทยได้
 - ✅ กำหนดช่วงหน้า — เลือก start page / end page ได้
@@ -27,17 +29,18 @@
 ### วิธีใช้งาน (สำหรับทีม — ไม่ต้องติดตั้ง Python)
 
 **Windows**
-1. ดาวน์โหลด `PDF2Excel_vXXXXXXXX.zip` จาก [Releases](../../releases)
+1. ดาวน์โหลด `PDF2Office_vXXXXXXXX.zip` จาก [Releases](../../releases)
 2. แตกไฟล์ zip
-3. ดับเบิลคลิก **`PDF2Excel.exe`**
+3. ดับเบิลคลิก **`PDF2Office.exe`**
 4. คลิก **Browse** เลือกไฟล์ PDF
-5. ตั้งค่าตามต้องการ แล้วคลิก **Convert to Excel**
+5. เลือก format ที่ต้องการ (Excel หรือ Word)
+6. คลิก **Convert to Excel** หรือ **Convert to Word**
 
 **macOS**
-1. ดาวน์โหลด `PDF2Excel_mac_vXXXXXXXX.zip` จาก [Releases](../../releases)
+1. ดาวน์โหลด `PDF2Office_mac_vXXXXXXXX.zip` จาก [Releases](../../releases)
 2. แตกไฟล์ zip
-3. ลาก **`PDF2Excel.app`** ไปไว้ใน Applications
-4. ดับเบิลคลิก **`PDF2Excel.app`**
+3. ลาก **`PDF2Office.app`** ไปไว้ใน Applications
+4. ดับเบิลคลิก **`PDF2Office.app`**
 5. หาก Mac แจ้งเตือน "cannot be opened" → คลิกขวา → **Open** → **Open**
 
 ### ตัวเลือกใน GUI
@@ -47,16 +50,21 @@
 | Start page | หน้าเริ่มต้น (default: 1) |
 | End page | หน้าสุดท้าย (default: หน้าสุดท้ายของไฟล์) |
 | Skip rows | ข้ามกี่แถวแรกของผลลัพธ์ |
-| Sheet name | ชื่อ worksheet ใน Excel (default: Data) |
+| Sheet name | ชื่อ worksheet ใน Excel (ใช้กับ Excel เท่านั้น) |
+| Output format | Excel (.xlsx) หรือ Word (.docx) |
 
 ### วิธีใช้งานแบบ CLI (สำหรับ Developer)
 
 ```bash
-# แปลงทั้งไฟล์
+# แปลงเป็น Excel (default)
 python pdf2excel.py input.pdf
+
+# แปลงเป็น Word
+python pdf2excel.py input.pdf --format docx
 
 # กำหนด output ชื่อเอง
 python pdf2excel.py input.pdf output.xlsx
+python pdf2excel.py input.pdf output.docx --format docx
 
 # เลือกช่วงหน้า
 python pdf2excel.py input.pdf --start-page 5 --end-page 50
@@ -64,7 +72,7 @@ python pdf2excel.py input.pdf --start-page 5 --end-page 50
 # ข้าม header row แรก
 python pdf2excel.py input.pdf --skip-rows 1
 
-# ตั้งชื่อ sheet
+# ตั้งชื่อ sheet (Excel เท่านั้น)
 python pdf2excel.py input.pdf --sheet "ข้อมูลยอดขาย"
 
 # ดู log ละเอียด
@@ -78,7 +86,8 @@ PDF2Excel/
 ├── gui.py              — หน้าต่าง GUI (tkinter)
 ├── pdf2excel.py        — CLI entry point
 ├── extractor.py        — engine ดึงข้อมูลจาก PDF (PyMuPDF / pdfplumber)
-├── formatter.py        — จัดรูปแบบและบันทึก Excel
+├── formatter.py        — จัดรูปแบบและบันทึก Excel (.xlsx)
+├── formatter_word.py   — จัดรูปแบบและบันทึก Word (.docx)
 ├── thai_utils.py       — แก้ไข Thai PUA encoding
 ├── requirements.txt    — dependencies
 ├── launch.bat          — รัน GUI (auto-install Python ถ้ายังไม่มี)
@@ -101,6 +110,7 @@ python gui.py
 
 # หรือรัน CLI
 python pdf2excel.py input.pdf
+python pdf2excel.py input.pdf --format docx
 ```
 
 ### สร้าง .exe / .app เพื่อแจกทีม
@@ -112,7 +122,7 @@ cd C:\Projects
 git clone https://github.com/zalengcompe-a11y/PDF2Excel.git
 cd PDF2Excel
 build.bat
-# ได้ไฟล์ PDF2Excel_vYYYYMMDD.zip
+# ได้ไฟล์ PDF2Office_vYYYYMMDD.zip
 ```
 
 **macOS** — สร้าง `.app`
@@ -121,7 +131,7 @@ git clone https://github.com/zalengcompe-a11y/PDF2Excel.git
 cd PDF2Excel
 chmod +x build_mac.sh
 ./build_mac.sh
-# ได้ไฟล์ PDF2Excel_mac_vYYYYMMDD.zip
+# ได้ไฟล์ PDF2Office_mac_vYYYYMMDD.zip
 ```
 
 ### Dependencies
@@ -131,6 +141,7 @@ chmod +x build_mac.sh
 | pymupdf | ≥ 1.23.0 | อ่าน PDF, รองรับ Thai Unicode |
 | pdfplumber | ≥ 0.10.0 | fallback engine สำหรับ PDF ภาษาละติน |
 | openpyxl | ≥ 3.1.2 | เขียนไฟล์ Excel |
+| python-docx | ≥ 1.1.2 | เขียนไฟล์ Word |
 | tqdm | ≥ 4.65.0 | แสดง progress bar ใน CLI |
 
 ---
@@ -139,12 +150,14 @@ chmod +x build_mac.sh
 
 ### About
 
-A robust tool for converting native (text-selectable) PDF files containing tables into formatted Excel (.xlsx) files.  
+A robust tool for converting native (text-selectable) PDF files containing tables into **Excel (.xlsx) or Word (.docx)**.  
 Designed for Thai-language PDFs but works with any language.
 
 ### Features
 
 - ✅ Thai language support — fixes Microsoft PUA font encoding (Angsana / Cordia / Browallia family)
+- ✅ Dual output format — choose Excel (.xlsx) or Word (.docx) in GUI and CLI
+- ✅ Word output — A4 landscape, Thai font on every run, soft line-breaks in cells
 - ✅ Watermark filtering — detects and removes rotated watermark text automatically
 - ✅ Thai filenames — opens PDF files with Thai characters in the filename
 - ✅ Page range selection — specify start and end pages
@@ -155,17 +168,18 @@ Designed for Thai-language PDFs but works with any language.
 ### Usage (for team members — no Python required)
 
 **Windows**
-1. Download `PDF2Excel_vXXXXXXXX.zip` from [Releases](../../releases)
+1. Download `PDF2Office_vXXXXXXXX.zip` from [Releases](../../releases)
 2. Extract the zip file
-3. Double-click **`PDF2Excel.exe`**
+3. Double-click **`PDF2Office.exe`**
 4. Click **Browse** to select a PDF file
-5. Configure options and click **Convert to Excel**
+5. Choose output format (Excel or Word)
+6. Click **Convert to Excel** or **Convert to Word**
 
 **macOS**
-1. Download `PDF2Excel_mac_vXXXXXXXX.zip` from [Releases](../../releases)
+1. Download `PDF2Office_mac_vXXXXXXXX.zip` from [Releases](../../releases)
 2. Extract the zip file
-3. Drag **`PDF2Excel.app`** to your Applications folder
-4. Double-click **`PDF2Excel.app`**
+3. Drag **`PDF2Office.app`** to your Applications folder
+4. Double-click **`PDF2Office.app`**
 5. If macOS shows "cannot be opened" → right-click → **Open** → **Open**
 
 ### GUI Options
@@ -175,16 +189,21 @@ Designed for Thai-language PDFs but works with any language.
 | Start page | First page to extract (default: 1) |
 | End page | Last page to extract (default: last page) |
 | Skip rows | Drop the first N rows from output |
-| Sheet name | Excel worksheet name (default: Data) |
+| Sheet name | Excel worksheet name — ignored for Word output |
+| Output format | Excel (.xlsx) or Word (.docx) |
 
 ### CLI Usage (for developers)
 
 ```bash
-# Convert entire file
+# Convert to Excel (default)
 python pdf2excel.py input.pdf
+
+# Convert to Word
+python pdf2excel.py input.pdf --format docx
 
 # Specify output filename
 python pdf2excel.py input.pdf output.xlsx
+python pdf2excel.py input.pdf output.docx --format docx
 
 # Extract specific page range
 python pdf2excel.py input.pdf --start-page 5 --end-page 50
@@ -192,7 +211,7 @@ python pdf2excel.py input.pdf --start-page 5 --end-page 50
 # Skip the first header row
 python pdf2excel.py input.pdf --skip-rows 1
 
-# Custom sheet name
+# Custom sheet name (Excel only)
 python pdf2excel.py input.pdf --sheet "Sales Data"
 
 # Enable verbose logging
@@ -206,7 +225,8 @@ PDF2Excel/
 ├── gui.py              — tkinter GUI frontend
 ├── pdf2excel.py        — CLI entry point
 ├── extractor.py        — PDF extraction engine (PyMuPDF / pdfplumber)
-├── formatter.py        — Excel formatting and output
+├── formatter.py        — Excel formatting and output (.xlsx)
+├── formatter_word.py   — Word formatting and output (.docx)
 ├── thai_utils.py       — Thai PUA encoding fix
 ├── requirements.txt    — Python dependencies
 ├── launch.bat          — Run GUI (auto-installs Python if missing)
@@ -229,9 +249,10 @@ python gui.py
 
 # Or run CLI
 python pdf2excel.py input.pdf
+python pdf2excel.py input.pdf --format docx
 ```
 
-### Building the .exe for distribution
+### Building the .exe / .app for distribution
 
 ```bash
 # Clone outside OneDrive to avoid permission errors during build
@@ -239,9 +260,9 @@ cd C:\Projects
 git clone https://github.com/zalengcompe-a11y/PDF2Excel.git
 cd PDF2Excel
 
-# Build
+# Build Windows .exe
 build.bat
-# Output: PDF2Excel_vYYYYMMDD.zip — ready to share with the team
+# Output: PDF2Office_vYYYYMMDD.zip
 ```
 
 ### Dependencies
@@ -251,11 +272,12 @@ build.bat
 | pymupdf | ≥ 1.23.0 | PDF reading with correct Thai Unicode support |
 | pdfplumber | ≥ 0.10.0 | Fallback engine for Latin PDFs |
 | openpyxl | ≥ 3.1.2 | Excel file writing |
+| python-docx | ≥ 1.1.2 | Word file writing |
 | tqdm | ≥ 4.65.0 | CLI progress bar |
 
 ### Requirements
 
-- **Runtime (end users):** None — the distributed `.exe` is fully self-contained
+- **Runtime (end users):** None — the distributed `.exe` / `.app` is fully self-contained
 - **Development:** Python 3.10 or later
 
 ### License
@@ -266,3 +288,4 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 - Scanned PDFs (image-only) are not supported — the PDF must contain selectable text
 - Very large PDFs (500+ pages) may take several minutes to process
+- Word output on macOS: if Thai font appears incorrect, select all (⌘A) and change font to **Thonburi** or **TH Sarabun New** in Word

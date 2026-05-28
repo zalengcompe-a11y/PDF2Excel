@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PDF2Excel.spec  —  PyInstaller build specification
+# PDF2Excel.spec  —  PyInstaller build specification (produces PDF2Office.exe)
 #
 # Build command (run once from the project folder):
 #   python -m PyInstaller PDF2Excel.spec --clean --noconfirm
@@ -29,6 +29,11 @@ for _pkg in ('openpyxl', 'et_xmlfile'):
     _d, _b, _h = collect_all(_pkg)
     datas += _d; binaries += _b; hiddenimports += _h
 
+# ── python-docx — needs its template .docx bundled ───────────────────────────
+for _pkg in ('docx',):
+    _d, _b, _h = collect_all(_pkg)
+    datas += _d; binaries += _b; hiddenimports += _h
+
 # ── cryptography (indirect dep of some pdfminer builds) ─────────────────────
 try:
     _d, _b, _h = collect_all('cryptography')
@@ -46,6 +51,7 @@ a = Analysis(
         # ── our own modules (imported lazily inside methods) ──────────────────
         'extractor',
         'formatter',
+        'formatter_word',
         'thai_utils',
         # ── stdlib / tkinter ─────────────────────────────────────────────────
         'tkinter',
@@ -83,7 +89,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='PDF2Excel',
+    name='PDF2Office',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -100,5 +106,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='PDF2Excel',
+    name='PDF2Office',
 )
