@@ -17,6 +17,10 @@ __pycache__/
 # Output files (may contain sensitive data)
 *.xlsx
 *.pdf
+*.docx
+
+# Local scratch / sample documents (may contain confidential data)
+temp/
 
 # PyInstaller temp
 *.manifest

@@ -260,6 +260,48 @@ class TestSaraIIEncoding:
         assert fix_thai_order("ไม่") == "ไม่"
 
 
+class TestSaraAmRecomposition:
+    """
+    Tests for sara-am (ำ U+0E33) recomposition.
+
+    Many Thai PDFs encode ำ as the decomposed sequence nikhahit (ํ U+0E4D) +
+    sara-aa (า U+0E32).  NFC does not recompose this, so fix_thai_order must.
+    Discovered in the EGAT ERP-HR source PDFs (ทํางาน, สํานัก, กําลัง, …).
+    """
+
+    def test_thamngan_recomposed(self):
+        """ทํางาน (decomposed) → ทำงาน (composed sara-am)."""
+        garbled = "ท" + "ํ" + "า" + "งาน"   # ท + ํ + า + งาน
+        assert fix_thai_order(garbled) == "ทำงาน"
+
+    def test_samnak_recomposed(self):
+        """สํานัก → สำนัก."""
+        assert fix_thai_order("สํานัก") == "สำนัก"
+
+    def test_kamlang_recomposed(self):
+        """กําลัง → กำลัง."""
+        assert fix_thai_order("กําลัง") == "กำลัง"
+
+    def test_kham_athibai_recomposed(self):
+        """คําอธิบาย → คำอธิบาย."""
+        assert fix_thai_order("คําอธิบาย") == "คำอธิบาย"
+
+    def test_no_decomposed_sara_am_remains(self):
+        """No decomposed sara-am (ํ followed by า) survives the fix."""
+        result = fix_thai_order("จัดทําแผน")  # จัดทําแผน → จัดทำแผน
+        assert "ํา" not in result
+        assert result == "จัดทำแผน"
+
+    def test_already_composed_sara_am_unchanged(self):
+        """Correct precomposed ำ (U+0E33) passes through untouched."""
+        assert fix_thai_order("ทำงาน") == "ทำงาน"
+
+    def test_standalone_nikhahit_not_followed_by_sara_aa_unchanged(self):
+        """A nikhahit NOT followed by sara-aa is left alone (no false merge)."""
+        # ก + ํ + ข : ํ is not followed by า, so it must not be merged away
+        assert "ํ" in fix_thai_order("ก" + "ํ" + "ข")
+
+
 class TestFixThaiRow:
     """Tests for fix_thai_row (applies fix_thai_order to every cell)."""
 

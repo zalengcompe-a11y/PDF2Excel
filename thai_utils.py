@@ -168,6 +168,16 @@ _RE_DOUBLE_SARA_I = re.compile(r"ิิ")               # two sara-i → sara-ii
 
 _RE_SARA_II_NIKHAHIT = re.compile(r"ีํ")            # sara-ii + nikhahit → sara-ii
 
+# Sara-am recomposition: many Thai PDFs (incl. the EGAT/Angsana family) encode
+# sara-am (ำ U+0E33) as the DECOMPOSED two-codepoint sequence
+#   nikhahit (ํ U+0E4D) + sara-aa (า U+0E32).
+# Unicode NFC does NOT recompose these — U+0E33 has no canonical decomposition —
+# so the garbled form survives extraction.  It is visually identical to ำ but
+# breaks search, copy, and text matching (e.g. ทํางาน vs the correct ทำงาน).
+# The sequence ํ+า is virtually never intended as two separate characters in
+# standard Thai, so recombining it is always safe.
+_RE_SARA_AM_DECOMPOSED = re.compile("ํา")  # ํ + า → ำ
+
 # Thai combining marks that NEVER appear at the start of a word (after a space):
 # nikhahit ํ (0E4D), mai-ek ่ (0E48), mai-tho ้ (0E49), mai-tri ๊ (0E4A),
 # mai-jattawa ๋ (0E4B).  When these appear immediately after a space or newline
@@ -182,6 +192,10 @@ def _fix_font_cmap_garbling(text: str) -> str:
 
     Applied AFTER PUA mapping and NFC so all characters are in standard form.
     """
+    # Pattern 0: ํ + า → ำ  (recompose decomposed sara-am; MUST precede the
+    #            orphan-mark removal in Pattern 7, otherwise a leading ํ after a
+    #            space would be stripped before it can pair with า)
+    text = _RE_SARA_AM_DECOMPOSED.sub("ำ", text)
     # Pattern 1: ผ้[consonant/leading-vowel] → ผู้
     text = _RE_PHO_MAI_THO.sub("ผู้", text)
     # Pattern 2: ไ้ → ได้
