@@ -178,6 +178,88 @@ class TestFontCmapGarbling:
         assert fix_thai_order(garbled) == expected
 
 
+class TestSaraIIEncoding:
+    """
+    Tests for multi-component sara-ii (ี U+0E35) recovery.
+
+    Some older Thai PDFs (EGAT/HTE style) encode sara-ii above ascending
+    consonants as 2–5 separate glyphs.  Patterns handled:
+      - ็้ (U+0E47 + U+0E49) → ี  after PUA mapping
+      - ิัิ (U+0E34 + U+0E31 + U+0E34) → ี
+      - ิิ  (U+0E34 + U+0E34) → ี
+      - ีํ  (sara-ii + nikhahit) → ี  (drop spurious nikhahit)
+      - Orphan tone marks after space → removed
+    """
+
+    # ── Component collapse ────────────────────────────────────────────────
+
+    def test_mai_taikhu_mai_tho_becomes_sara_ii(self):
+        """็้ after PUA mapping → ี."""
+        # Simulate PUA-translated result: ป + ็ + ้ → ปี
+        garbled = "ป" + "็" + "้"   # ป็้
+        assert fix_thai_order(garbled) == "ปี"
+
+    def test_sara_i_sara_a_sara_i_becomes_sara_ii(self):
+        """ิ + ั + ิ → ี (3-component encoding)."""
+        garbled = "ป" + "ิ" + "ั" + "ิ" + "ไป"   # ปิัิไป
+        assert fix_thai_order(garbled) == "ปีไป"
+
+    def test_double_sara_i_becomes_sara_ii(self):
+        """ิิ → ี (2-component encoding)."""
+        garbled = "ป" + "ิ" + "ิ"   # ปิิ
+        assert fix_thai_order(garbled) == "ปี"
+
+    def test_sara_ii_nikhahit_drops_nikhahit(self):
+        """ีํ → ี  (spurious nikhahit from split encoding dropped)."""
+        garbled = "ปี" + "ํ"    # ปี + nikhahit
+        assert fix_thai_order(garbled) == "ปี"
+
+    # ── Orphan tone marks after space ─────────────────────────────────────
+
+    def test_orphan_tone_after_space_removed(self):
+        """Tone mark immediately after space has no base consonant → removed."""
+        garbled = "ปี " + "่้" + "ปีไป"   # ปี ่้ปีไป
+        assert fix_thai_order(garbled) == "ปี ปีไป"
+
+    def test_orphan_nikhahit_after_space_removed(self):
+        """Nikhahit immediately after space → removed."""
+        garbled = "ปี " + "ํ่้" + " ปีไป"  # ปี ํ่้ ปีไป
+        assert fix_thai_order(garbled) == "ปี ปีไป"
+
+    def test_double_space_collapsed(self):
+        """Multiple consecutive spaces collapsed to one (side-effect of orphan removal)."""
+        assert fix_thai_order("ปี  ปีไป") == "ปี ปีไป"
+
+    # ── Integration: split-line sara-ii simulation ────────────────────────
+
+    def test_split_line_sara_ii_hte04_pattern(self):
+        """
+        Full pipeline for HTE_04-style encoding where sara-ii is split across
+        rawdict lines and _join_cell_lines inserts spaces between PUA segments.
+
+        Raw (before any processing):
+          ป + F712 + F70B + SPACE + U+0E4D + F70A + F70B + SPACE + ปิัิไป
+        Expected after fix_thai_order:
+          ปี ปีไป
+        """
+        raw = (
+            "ป"          # ป + PUA_F712 + PUA_F70B
+            " "                            # space from _join_cell_lines
+            "ํ"          # ํ(nikhahit) + PUA_F70A + PUA_F70B
+            " "                            # space from _join_cell_lines
+            "ปิัิ"    # ป + ิ + ั + ิ  (2nd sara-ii encoding)
+            "ไป"                 # ไป
+        )
+        assert fix_thai_order(raw) == "ปี ปีไป"
+
+    def test_valid_thai_unchanged(self):
+        """Standard Thai with sara-ii must not be modified."""
+        assert fix_thai_order("ปีไป") == "ปีไป"
+        assert fix_thai_order("ปีที่แล้ว") == "ปีที่แล้ว"
+        assert fix_thai_order("เป็น") == "เป็น"
+        assert fix_thai_order("ไม่") == "ไม่"
+
+
 class TestFixThaiRow:
     """Tests for fix_thai_row (applies fix_thai_order to every cell)."""
 

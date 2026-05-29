@@ -86,46 +86,118 @@ _THAI_PUA_MAP: dict[int, str] = {
 _PUA_TRANSLATE = str.maketrans(_THAI_PUA_MAP)
 
 
-# ── Font-CMap garbling recovery ───────────────────────────────────────────────
-# Some Thai PDFs use ligature/composite glyphs whose ToUnicode CMap omits one
-# of the combining characters.  Two patterns recur in Microsoft-font-based PDFs:
+# ── Pre-PUA multi-character sara-ii recovery ──────────────────────────────────
+# Some Thai PDFs (notably those using older EGAT/Microsoft office fonts) encode
+# sara-ii (ี U+0E35) as a SEQUENCE of PUA and non-PUA glyphs rather than a
+# single character.  These sequences must be collapsed BEFORE the per-character
+# PUA translation fires, because they span both PUA and standard codepoints.
 #
-# 1.  ผ + ้  + consonant/leading-vowel  →  ผู้ + consonant/leading-vowel
-#     Thai consonants: U+0E01–U+0E2E (ก–ฮ)
-#     Thai leading vowels: เ แ โ ใ ไ (U+0E40–U+0E44)
-#     The sara-uu (ู U+0E39) was present in the source document but was not
-#     mapped in the font's ToUnicode CMap, so text extraction omits it.
-#     Guard: we only insert ู when the character AFTER ้ is a consonant or
-#     leading vowel — never when it is า (U+0E32) because ผ้า (fabric) is a
-#     valid Thai word.
+# Pattern A (5-char, ascending consonant + nikhahit spacing):
+#   U+F712 U+F70B U+0E4D U+F70A U+F70B  →  ี
+#   Observed for consonants like ป that have a tall ascending stroke; the font
+#   splits sara-ii into three visual sub-glyphs (lower hook F712, upper curve
+#   F70B) plus a "phantom" nikhahit U+0E4D used as a horizontal spacer,
+#   followed by another F70A/F70B pair.
 #
-# 2.  ไ + ้  →  ได้
-#     ไ (sara ai maimalai, U+0E44) is a LEADING vowel; tone marks attach to
-#     the following consonant, never to ไ directly.  The sequence ไ + ้ is
-#     therefore always a sign that ด (U+0E14, do dek) was dropped by the CMap.
-#     ได้ (can / has obtained) is by far the most common Thai word with this
-#     pattern.
+# Pattern B (2-char, simpler ascending-consonant form):
+#   U+F712 U+F70B  →  ี
+#   Same logic but without the phantom nikhahit.
+#
+# Both patterns are applied as regex so they fire before str.translate().
 
-# Thai consonants range U+0E01–U+0E2E, leading vowels U+0E40–U+0E44
-_RE_PHO_MAI_THO = re.compile(
-    r"ผ้(?=[ก-ฮเ-ไ])"
+_RE_SARA_II_5CHAR = re.compile(
+    "ํ"   # F712 F70B ํ F70A F70B
+)
+_RE_SARA_II_2CHAR = re.compile(
+    ""                       # F712 F70B
 )
 
-# ไ immediately followed by mai tho → always garbled ได้
+
+def _fix_sara_ii_pua_sequences(text: str) -> str:
+    """
+    Collapse multi-character PUA encodings of sara-ii (ี) into a single U+0E35.
+
+    Must run BEFORE the per-character PUA translate table so the 5-char pattern
+    takes priority over individual F712 / F70B substitutions.
+    """
+    text = _RE_SARA_II_5CHAR.sub("ี", text)   # longer pattern first
+    text = _RE_SARA_II_2CHAR.sub("ี", text)
+    return text
+
+
+# ── Font-CMap garbling recovery ───────────────────────────────────────────────
+# Some Thai PDFs use ligature/composite glyphs whose ToUnicode CMap omits one
+# of the combining characters.  Patterns fixed here (AFTER PUA mapping + NFC):
+#
+# 1.  ผ + ้  + consonant/leading-vowel  →  ผู้ + ...
+#     sara-uu (ู U+0E39) omitted by CMap.
+#     Guard: ผ้า (fabric, ้ before า) is preserved.
+#
+# 2.  ไ + ้  →  ได้
+#     ไ is a leading vowel and never takes a tone mark directly.
+#
+# 3.  ็ + ้  →  ี  (mai-taikhu + mai-tho → sara-ii)
+#     Occurs when _RE_SARA_II_2CHAR applies but a stray ้ still remains, or
+#     when a font independently encodes sara-ii above ascending consonants as
+#     the two-PUA sequence that maps to ็ + ้ after per-char translation.
+#     Having both U+0E47 (mai-taikhu) and U+0E49 (mai-tho) on the same
+#     consonant is extremely rare / non-standard in modern Thai orthography.
+#
+# 4.  ิ + ั + ิ  →  ี  (sara-i + sara-a + sara-i → sara-ii)
+#     Observed in older EGAT font rendering: the long-i vowel mark is split into
+#     three sub-glyph components each mapped to sara-i or sara-a in the CMap.
+#
+# 5.  ิ + ิ  →  ี  (two sara-i → sara-ii)
+#     Simpler two-component encoding of the same issue.
+
+# Thai consonants U+0E01–U+0E2E, leading vowels U+0E40–U+0E44
+_RE_PHO_MAI_THO = re.compile(r"ผ้(?=[ก-ฮเ-ไ])")
 _RE_SAI_MAI_THO = re.compile(r"ไ้")
+_RE_MAI_TAIKHU_MAI_THO = re.compile(r"็้")          # mai-taikhu + mai-tho → sara-ii
+_RE_SARA_I_SARA_A_SARA_I = re.compile(r"ิัิ")       # sara-i + sara-a + sara-i → sara-ii
+_RE_DOUBLE_SARA_I = re.compile(r"ิิ")               # two sara-i → sara-ii
+
+# Orphan-mark cleanup: when multi-char sara-ii encoding is split across rawdict
+# lines, _join_cell_lines inserts spaces between PUA-character segments.  After
+# PUA translation the result contains spurious combining marks adjacent to spaces:
+#
+#   ีํ  — nikhahit (ํ U+0E4D) immediately after sara-ii (ี) is invalid; drop it.
+#   " [่้๊๋]+" — tone marks floating after a space have no base consonant;
+#               they are rendering artifacts of the split encoding, not real text.
+#               Remove them while preserving the space.
+
+_RE_SARA_II_NIKHAHIT = re.compile(r"ีํ")            # sara-ii + nikhahit → sara-ii
+
+# Thai combining marks that NEVER appear at the start of a word (after a space):
+# nikhahit ํ (0E4D), mai-ek ่ (0E48), mai-tho ้ (0E49), mai-tri ๊ (0E4A),
+# mai-jattawa ๋ (0E4B).  When these appear immediately after a space or newline
+# they are rendering artifacts (orphan marks from a split multi-glyph encoding)
+# and must be removed.  Removing them is ALWAYS safe in modern Thai orthography.
+_RE_ORPHAN_TONE_MARKS = re.compile(r"(?<=[ \n])[ํ่้๊๋]+")
 
 
 def _fix_font_cmap_garbling(text: str) -> str:
     """
-    Recover characters dropped by incomplete ToUnicode CMap in Thai PDFs.
+    Recover characters dropped/garbled by incomplete ToUnicode CMap in Thai PDFs.
 
     Applied AFTER PUA mapping and NFC so all characters are in standard form.
-    Two targeted patterns only — no broad heuristics that could corrupt text.
     """
-    # Pattern 1: ผ้[consonant/leading-vowel] → ผู้[consonant/leading-vowel]
+    # Pattern 1: ผ้[consonant/leading-vowel] → ผู้
     text = _RE_PHO_MAI_THO.sub("ผู้", text)
     # Pattern 2: ไ้ → ได้
     text = _RE_SAI_MAI_THO.sub("ได้", text)
+    # Pattern 3: ็้ → ี  (ascending-consonant sara-ii, 2-component form)
+    text = _RE_MAI_TAIKHU_MAI_THO.sub("ี", text)
+    # Pattern 4: ิัิ → ี  (3-component sara-ii; must precede pattern 5)
+    text = _RE_SARA_I_SARA_A_SARA_I.sub("ี", text)
+    # Pattern 5: ิิ → ี  (2-component sara-ii)
+    text = _RE_DOUBLE_SARA_I.sub("ี", text)
+    # Pattern 6: ีํ → ี  (spurious nikhahit after sara-ii from split encoding)
+    text = _RE_SARA_II_NIKHAHIT.sub("ี", text)
+    # Pattern 7: tone marks / nikhahit stranded after space/newline → remove
+    text = _RE_ORPHAN_TONE_MARKS.sub("", text)
+    # Pattern 8: collapse multiple consecutive spaces to one (may arise after P7)
+    text = re.sub(r"  +", " ", text)
     return text
 
 
@@ -136,20 +208,23 @@ def fix_thai_order(text: str) -> str:
     Fix Thai text extracted from a PDF that uses Microsoft Thai PUA encoding.
 
     Steps:
-    1. Replace PUA alternate forms (U+F700–U+F71B) with standard Thai chars.
-    2. Apply Unicode NFC normalisation to compose combining characters.
-    3. Recover characters dropped by incomplete font ToUnicode CMap entries.
+    1. Collapse multi-character PUA sequences that encode a single sara-ii (ี).
+    2. Replace remaining PUA alternate forms (U+F700–U+F71B) with standard Thai.
+    3. Apply Unicode NFC normalisation to compose combining characters.
+    4. Recover characters dropped by incomplete font ToUnicode CMap entries.
 
     Safe to call on non-Thai / mixed-language text — only the PUA range is
     remapped; all other characters pass through unchanged.
     """
     if not text:
         return text
-    # Step 1 — PUA → standard Thai (uses str.translate for speed)
+    # Step 1 — collapse multi-char sara-ii PUA sequences (must precede translate)
+    text = _fix_sara_ii_pua_sequences(text)
+    # Step 2 — remaining PUA → standard Thai (per-character, O(n))
     text = text.translate(_PUA_TRANSLATE)
-    # Step 2 — NFC: Thai tone marks (cc=107) won't cross cc=0 boundaries
+    # Step 3 — NFC: Thai tone marks (cc=107) won't cross cc=0 boundaries
     text = unicodedata.normalize('NFC', text)
-    # Step 3 — recover glyphs omitted by incomplete font CMap
+    # Step 4 — recover glyphs omitted/garbled by incomplete font CMap
     return _fix_font_cmap_garbling(text)
 
 
