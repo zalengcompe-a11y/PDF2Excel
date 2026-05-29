@@ -24,6 +24,11 @@
 pytest   # ต้องผ่านทั้งหมดก่อน commit
 ```
 
+## ⚠️ Public repo — confidentiality
+Repo นี้เป็น **public** ดังนั้นทุกครั้งก่อน commit / push / release:
+- **ห้าม commit เอกสารต้นฉบับหรือไฟล์ตัวอย่างของผู้ใช้จริง** (`.pdf` / `.xlsx` / `.docx`) — `.gitignore` กัน `temp/` และไฟล์เหล่านี้ไว้แล้ว ใช้ `temp/` เป็นที่วางไฟล์ทดสอบเท่านั้น
+- **ห้ามใส่ชื่อองค์กร/ลูกค้า หรือชื่อระบบภายในของผู้ใช้** ลงใน source, comment, test, commit message, release notes — เวลายกตัวอย่างให้ใช้คำกลางๆ เช่น "some Thai PDFs" / "Thai office-font documents"
+
 ## Release workflow
 
 ```bash

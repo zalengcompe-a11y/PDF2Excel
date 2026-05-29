@@ -182,8 +182,8 @@ class TestSaraIIEncoding:
     """
     Tests for multi-component sara-ii (ี U+0E35) recovery.
 
-    Some older Thai PDFs (EGAT/HTE style) encode sara-ii above ascending
-    consonants as 2–5 separate glyphs.  Patterns handled:
+    Some older Thai PDFs encode sara-ii above ascending consonants as 2–5
+    separate glyphs.  Patterns handled:
       - ็้ (U+0E47 + U+0E49) → ี  after PUA mapping
       - ิัิ (U+0E34 + U+0E31 + U+0E34) → ี
       - ิิ  (U+0E34 + U+0E34) → ี
@@ -232,10 +232,11 @@ class TestSaraIIEncoding:
 
     # ── Integration: split-line sara-ii simulation ────────────────────────
 
-    def test_split_line_sara_ii_hte04_pattern(self):
+    def test_split_line_sara_ii_ascending_pattern(self):
         """
-        Full pipeline for HTE_04-style encoding where sara-ii is split across
-        rawdict lines and _join_cell_lines inserts spaces between PUA segments.
+        Full pipeline for ascending-consonant encoding where sara-ii is split
+        across rawdict lines and _join_cell_lines inserts spaces between PUA
+        segments.
 
         Raw (before any processing):
           ป + F712 + F70B + SPACE + U+0E4D + F70A + F70B + SPACE + ปิัิไป
@@ -266,7 +267,7 @@ class TestSaraAmRecomposition:
 
     Many Thai PDFs encode ำ as the decomposed sequence nikhahit (ํ U+0E4D) +
     sara-aa (า U+0E32).  NFC does not recompose this, so fix_thai_order must.
-    Discovered in the EGAT ERP-HR source PDFs (ทํางาน, สํานัก, กําลัง, …).
+    Seen in Thai office-font documents (ทํางาน, สํานัก, กําลัง, …).
     """
 
     def test_thamngan_recomposed(self):

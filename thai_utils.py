@@ -87,7 +87,7 @@ _PUA_TRANSLATE = str.maketrans(_THAI_PUA_MAP)
 
 
 # ── Pre-PUA multi-character sara-ii recovery ──────────────────────────────────
-# Some Thai PDFs (notably those using older EGAT/Microsoft office fonts) encode
+# Some Thai PDFs (notably those using older Microsoft office fonts) encode
 # sara-ii (ี U+0E35) as a SEQUENCE of PUA and non-PUA glyphs rather than a
 # single character.  These sequences must be collapsed BEFORE the per-character
 # PUA translation fires, because they span both PUA and standard codepoints.
@@ -144,7 +144,7 @@ def _fix_sara_ii_pua_sequences(text: str) -> str:
 #     consonant is extremely rare / non-standard in modern Thai orthography.
 #
 # 4.  ิ + ั + ิ  →  ี  (sara-i + sara-a + sara-i → sara-ii)
-#     Observed in older EGAT font rendering: the long-i vowel mark is split into
+#     Observed in older Thai font rendering: the long-i vowel mark is split into
 #     three sub-glyph components each mapped to sara-i or sara-a in the CMap.
 #
 # 5.  ิ + ิ  →  ี  (two sara-i → sara-ii)
@@ -168,7 +168,7 @@ _RE_DOUBLE_SARA_I = re.compile(r"ิิ")               # two sara-i → sara-ii
 
 _RE_SARA_II_NIKHAHIT = re.compile(r"ีํ")            # sara-ii + nikhahit → sara-ii
 
-# Sara-am recomposition: many Thai PDFs (incl. the EGAT/Angsana family) encode
+# Sara-am recomposition: many Thai PDFs (incl. the Angsana font family) encode
 # sara-am (ำ U+0E33) as the DECOMPOSED two-codepoint sequence
 #   nikhahit (ํ U+0E4D) + sara-aa (า U+0E32).
 # Unicode NFC does NOT recompose these — U+0E33 has no canonical decomposition —
